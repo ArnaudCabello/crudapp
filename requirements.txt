@@ -4,3 +4,6 @@ PyMySQL
 python-dotenv
 cryptography
 pytest
+langchain-community
+langchain
+openai

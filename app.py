@@ -1,9 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-import os
+from langchain.agents import Tool, initialize_agent, AgentType
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
 
 app = Flask(__name__)
 app.secret_key = "Secret Key"
+api_key = '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'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:admin@db:3306/flaskdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -20,6 +23,141 @@ class Data(db.Model):
         self.name = name
         self.age = age
         self.birthstate = birthstate
+
+# Your existing DB functions (slightly renamed to avoid confusion)
+def get_user_by_id(user_id: int):
+    user = Data.query.get(user_id)
+    if user:
+        return f"User ID: {user.id}, Name: {user.name}, Age: {user.age}, Birth State: {user.birthstate}"
+    return "User not found."
+
+def create_user_func(name: str, age: int, birthstate: str):
+    new_user = Data(name=name, age=age, birthstate=birthstate)
+    db.session.add(new_user)
+    db.session.commit()
+    return f"User {name} created."
+
+def update_user_func(user_id: int, name=None, age=None, birthstate=None):
+    user = Data.query.get(user_id)
+    if not user:
+        return "User not found."
+    user.name = name or user.name
+    user.age = age or user.age
+    user.birthstate = birthstate or user.birthstate
+    db.session.commit()
+    return f"User ID {user_id} updated."
+
+def delete_user_func(user_id: int):
+    user = Data.query.get(user_id)
+    if not user:
+        return "User not found."
+    db.session.delete(user)
+    db.session.commit()
+    return f"User ID {user_id} deleted."
+
+
+# Wrapper functions to parse string input for LangChain tools
+
+def get_user_tool_func(input_str: str):
+    try:
+        user_id = int(input_str.strip())
+    except Exception:
+        return "Invalid user ID. Please provide an integer."
+    return get_user_by_id(user_id)
+
+def create_user_tool_func(input_str: str):
+    # Expected format: "name, age, birthstate"
+    parts = [part.strip() for part in input_str.split(",")]
+    if len(parts) != 3:
+        return "Invalid input format. Expected: name, age, birthstate"
+    name, age_str, birthstate = parts
+    try:
+        age = int(age_str)
+    except Exception:
+        return "Invalid age. Please provide an integer."
+    return create_user_func(name, age, birthstate)
+
+def update_user_tool_func(input_str: str):
+    # Expected format: "user_id, name, age, birthstate"
+    parts = [part.strip() for part in input_str.split(",")]
+    if len(parts) != 4:
+        return "Invalid input format. Expected: user_id, name, age, birthstate"
+    user_id_str, name, age_str, birthstate = parts
+    try:
+        user_id = int(user_id_str)
+        age = int(age_str)
+    except Exception:
+        return "Invalid user ID or age. Please provide integers."
+    return update_user_func(user_id, name, age, birthstate)
+
+def delete_user_tool_func(input_str: str):
+    try:
+        user_id = int(input_str.strip())
+    except Exception:
+        return "Invalid user ID. Please provide an integer."
+    return delete_user_func(user_id)
+
+
+# Now define tools using these wrapper functions
+
+tools = [
+    Tool.from_function(
+        name="get_user_tool",
+        description="Get user info by ID. Input: user ID as an integer.",
+        func=get_user_tool_func
+    ),
+    Tool.from_function(
+        name="create_user_tool",
+        description="Create a new user with name, age, and birthstate. Input format: name, age, birthstate",
+        func=create_user_tool_func
+    ),
+    Tool.from_function(
+        name="update_user_tool",
+        description="Update a user by ID and new fields. Input format: user_id, name, age, birthstate",
+        func=update_user_tool_func
+    ),
+    Tool.from_function(
+        name="delete_user_tool",
+        description="Delete a user by ID. Input: user ID as an integer.",
+        func=delete_user_tool_func
+    ),
+]
+
+# Format tool names for prompt template
+tool_names = ", ".join([tool.name for tool in tools])
+
+# Custom agent prompt template
+template = f"""
+You are a smart assistant that manages a user database using the following tools:
+- get_user_tool: Get user info by ID
+- create_user_tool: Create a new user with name, age, and birthstate
+- update_user_tool: Update a user by ID and new fields
+- delete_user_tool: Delete a user by ID
+
+When answering, follow this format:
+Thought: Do I need to use a tool? Yes
+Action: the action to take, one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+
+If no tool is needed:
+Thought: Do I need to use a tool? No
+Final Answer: [answer to the user]
+"""
+
+prompt = PromptTemplate.from_template(template)
+
+agent = initialize_agent(
+    tools=tools,
+    llm=OpenAI(openai_api_key=api_key, temperature=0),
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    agent_kwargs={"prefix": prompt.template},
+    verbose=True,
+)
+
+def run_agent(user_input: str):
+    with app.app_context():
+        return agent.run(user_input)
 
 with app.app_context():
     db.create_all()
@@ -120,6 +258,19 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     return jsonify({"message": "User deleted"})
+
+@app.route('/ask-ai', methods=['POST'])
+def ask_ai():
+    data = request.get_json()
+    user_input = data.get("input", "")
+    if not user_input:
+        return jsonify({"error": "Missing input"}), 400
+
+    try:
+        result = run_agent(user_input)
+        return jsonify({"response": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)
