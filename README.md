@@ -13,17 +13,16 @@ This is a full-stack Flask CRUD application with MySQL database integration, RES
 - pip
 
   ## Running the App
-1. Clone the repository:
-   git clone https://github.com/ArnaudCabello/crudapp.git
+1. Clone the repository: git clone https://github.com/ArnaudCabello/crudapp.git
    cd crudapp
 
-2. In app.py line 9 insert an OPENAI API key to use the agentic AI 
+3. In app.py line 9 insert an OPENAI API key to use the agentic AI 
    
-3. Run docker-compose up --build
+4. Run docker-compose up --build
 
-4. Open localhost:5000
+5. Open localhost:5000
 
-5. Run docker-compose run --rm app pytest test_app.py for integration tests
+6. Run docker-compose run --rm app pytest test_app.py for integration tests
 
 
    
