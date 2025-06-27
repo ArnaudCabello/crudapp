@@ -6,7 +6,7 @@ from langchain.prompts import PromptTemplate
 
 app = Flask(__name__)
 app.secret_key = "Secret Key"
-api_key = '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'
+api_key = "YOUR_API_KEY"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:admin@db:3306/flaskdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -24,7 +24,7 @@ class Data(db.Model):
         self.age = age
         self.birthstate = birthstate
 
-# Your existing DB functions (slightly renamed to avoid confusion)
+# DB Functions
 def get_user_by_id(user_id: int):
     user = Data.query.get(user_id)
     if user:
@@ -98,7 +98,7 @@ def delete_user_tool_func(input_str: str):
     return delete_user_func(user_id)
 
 
-# Now define tools using these wrapper functions
+# tools using these wrapper functions
 
 tools = [
     Tool.from_function(
@@ -259,6 +259,7 @@ def delete_user(id):
     db.session.commit()
     return jsonify({"message": "User deleted"})
 
+# Agentic AI
 @app.route('/ask-ai', methods=['POST'])
 def ask_ai():
     data = request.get_json()
