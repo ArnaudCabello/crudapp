@@ -15,6 +15,8 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy app and test files
 COPY . .
 
-CMD ["python", "app.py"]
+# Use shell so `docker-compose run` can override it (for pytest)
+CMD ["sh", "-c", "python app.py"]
