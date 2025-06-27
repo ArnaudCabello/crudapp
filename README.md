@@ -6,6 +6,7 @@ This is a full-stack Flask CRUD application with MySQL database integration, RES
 - REST API + HTML interface
 - MySQL database (via Docker)
 - Integration tests using `pytest`
+- Basic agentic AI that allows you to look up users based on ID, add users, delete user by ID, and update user by ID
 
   ## Requirements
 - Docker & Docker Compose
