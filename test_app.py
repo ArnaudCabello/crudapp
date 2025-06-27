@@ -1,17 +1,12 @@
 import pytest
 from app import app, db
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-db_user = os.getenv('DB_USER')
-db_password = os.getenv('DB_PASSWORD')
-db_database = os.getenv("MYSQL_DATABASE")
 
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_password}@db:3306/{db_database}'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:admin@db:3306/flaskdb'
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
